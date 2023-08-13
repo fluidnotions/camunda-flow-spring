@@ -1,0 +1,57 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.1.2'
+	id 'io.spring.dependency-management' version '1.1.2'
+	id 'maven-publish'
+}
+
+group = 'com.fluidnitions'
+version = '0.0.1 '
+
+java {
+	sourceCompatibility = '17'
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	implementation 'org.camunda.bpm:camunda-external-task-client:+'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+def properties = new Properties()
+file(project.rootDir.absolutePath + "/local.properties").withInputStream { properties.load(it) }
+
+publishing {
+	repositories {
+		maven {
+			name = "GitHubPackages"
+			url = uri("https://maven.pkg.github.com/fluidnotions/camunda7-support")
+			credentials {
+				username = properties.getProperty('github.username')
+				password = properties.getProperty('github.token')
+			}
+		}
+	}
+	publications {
+		mavenJava(MavenPublication){
+			artifact jar
+			artifactId = 'camunda7-support'
+		}
+	}
+}
