@@ -33,7 +33,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     @Value("${camunda.bpm.client.base-url}")
     private String camundaBaseUrl;
 
-    @Value("${cam.service-tast.lock-duration:30000}")
+    @Value("${cam.service-task.lock-duration:30000}")
     private Long lockDuration;
 
     private final ExternalTaskClient taskClient;
