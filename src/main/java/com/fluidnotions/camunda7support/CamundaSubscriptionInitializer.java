@@ -42,7 +42,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     public void onApplicationEvent(final ApplicationReadyEvent event) {
         ApplicationContext applicationContext = event.getApplicationContext();
         Map<String, Object> beans = applicationContext.getBeansWithAnnotation(CamundaWorker.class);
-        if(isCamundaAccessable()){
+        if(isCamundaAccessible()){
             for (Object bean : beans.values()) {
                 Class<?> targetClass = (AopUtils.isAopProxy(bean) ? AopUtils.getTargetClass(bean) : bean.getClass());
                 log.debug("Checking bean: " + targetClass.getName());
@@ -104,7 +104,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
         return values.toArray();
     }
 
-    private boolean isCamundaAccessable() {
+    private boolean isCamundaAccessible() {
         try {
             URL url = new URL(camundaBaseUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
