@@ -98,6 +98,9 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
 
     private Object[] retrievePropertyValues(ExternalTask externalTask, String[] propertyNames) {
         var varMap = externalTask.getAllVariablesTyped();
+        if(propertyNames.length == 1 && propertyNames[0].equals("*")){
+            return varMap.entrySet().toArray();
+        }
         List<Object> values = Arrays.stream(propertyNames)
                 .map(varMap::get)
                 .collect(Collectors.toList());
