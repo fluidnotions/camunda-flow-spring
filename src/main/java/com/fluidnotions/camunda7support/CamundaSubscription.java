@@ -10,6 +10,8 @@ import java.lang.annotation.Target;
 public @interface CamundaSubscription {
     String topic();
     String[] arguments() default {};
+
+    String qualifier() default "";
 }
 
 

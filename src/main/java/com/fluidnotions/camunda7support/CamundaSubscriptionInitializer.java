@@ -53,8 +53,14 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                         log.debug("Wrapping method in camunda subscription handler: " + method.getName());
                         String topic = annotation.topic();
                         String[] arguments = annotation.arguments();
+                        String qualifier = annotation.qualifier();
                         taskClient.subscribe(topic).lockDuration(lockDuration).handler((externalTask, externalTaskService) -> {
                             try {
+                                String taskVariableQualifier = externalTask.getVariable("qualifier");
+                                if(!qualifier.isEmpty() && taskVariableQualifier !=null && !taskVariableQualifier.isEmpty() && !qualifier.equals(taskVariableQualifier)){
+                                    log.debug("Task triggered by subscription to topic {} ignored because qualifier {} does not match {}", topic, taskVariableQualifier, qualifier);
+                                    return;
+                                }
                                 var args = retrievePropertyValues(externalTask, arguments);
                                 Object result = method.invoke(bean, args);
                                 VariableMap variableMap = toVariableMap(result);
