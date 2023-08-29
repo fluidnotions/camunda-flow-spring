@@ -54,6 +54,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                         String topic = annotation.topic();
                         String[] arguments = annotation.arguments();
                         String qualifier = annotation.qualifier();
+                        String resultVariableName = annotation.result();
                         taskClient.subscribe(topic).lockDuration(lockDuration).handler((externalTask, externalTaskService) -> {
                             try {
                                 String taskVariableQualifier = externalTask.getVariable("qualifier");
@@ -64,7 +65,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                                 var args = retrievePropertyValues(externalTask, arguments);
                                 Object result = method.invoke(bean, args);
                                 VariableMap variableMap = toVariableMap(result);
-                                externalTaskService.complete(externalTask, variableMap);
+                                externalTaskService.complete(externalTask, Map.of(resultVariableName, variableMap));
                             } catch (Throwable e) {
                                 log.error("Task triggered by subscription to topic {} failed".formatted(topic), e);
                                 externalTaskService.handleFailure(externalTask, "Task triggered by subscription to topic %s failed".formatted(topic), e.getMessage(), 0, 0);

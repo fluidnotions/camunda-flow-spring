@@ -9,9 +9,12 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface CamundaSubscription {
     String topic();
+
     String[] arguments() default {};
 
     String qualifier() default "";
+
+    String result();
 }
 
 
