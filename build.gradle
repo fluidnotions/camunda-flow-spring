@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.0.4-SNAPSHOT'
+version = '0.0.6'
 
 java {
 	sourceCompatibility = '17'
@@ -25,7 +25,7 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0-alpha3'
-	implementation 'org.camunda.bpm:camunda-engine-plugin-spin:7.20.0-alpha3'
+	implementation 'org.camunda.spin:camunda-spin-core:1.21.0'
 	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.21.0'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

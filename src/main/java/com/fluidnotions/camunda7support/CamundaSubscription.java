@@ -1,5 +1,7 @@
 package com.fluidnotions.camunda7support;
 
+
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -15,6 +17,10 @@ public @interface CamundaSubscription {
     String qualifier() default "";
 
     String result();
+
+    String returnValueProperty() default "";
+
+    Class[] argumentTypes() default {};
 }
 
 

@@ -1,9 +1,11 @@
 package com.fluidnotions.camunda7support;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.client.ExternalTaskClient;
-import org.camunda.bpm.client.task.ExternalTask;
+import org.camunda.bpm.client.variable.ClientValues;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.springframework.aop.support.AopUtils;
@@ -13,17 +15,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
 
-import java.beans.BeanInfo;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -35,6 +34,8 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
 
     @Value("${cam.service-task.lock-duration:30000}")
     private Long lockDuration;
+
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     private final ExternalTaskClient taskClient;
 
@@ -48,30 +49,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                 log.debug("Checking bean: " + targetClass.getName());
                 Method[] methods = targetClass.getMethods();
                 for (Method method : methods) {
-                    CamundaSubscription annotation = method.getAnnotation(CamundaSubscription.class);
-                    if (annotation != null) {
-                        log.debug("Wrapping method in camunda subscription handler: " + method.getName());
-                        String topic = annotation.topic();
-                        String[] arguments = annotation.arguments();
-                        String qualifier = annotation.qualifier();
-                        String resultVariableName = annotation.result();
-                        taskClient.subscribe(topic).lockDuration(lockDuration).handler((externalTask, externalTaskService) -> {
-                            try {
-                                String taskVariableQualifier = externalTask.getVariable("qualifier");
-                                if(!qualifier.isEmpty() && taskVariableQualifier !=null && !taskVariableQualifier.isEmpty() && !qualifier.equals(taskVariableQualifier)){
-                                    log.debug("Task triggered by subscription to topic {} ignored because qualifier {} does not match {}", topic, taskVariableQualifier, qualifier);
-                                    return;
-                                }
-                                var args = retrievePropertyValues(externalTask, arguments);
-                                Object result = method.invoke(bean, args);
-                                VariableMap variableMap = toVariableMap(result);
-                                externalTaskService.complete(externalTask, Map.of(resultVariableName, variableMap));
-                            } catch (Throwable e) {
-                                log.error("Task triggered by subscription to topic {} failed".formatted(topic), e);
-                                externalTaskService.handleFailure(externalTask, "Task triggered by subscription to topic %s failed".formatted(topic), e.getMessage(), 0, 0);
-                            }
-                        }).open();
-                    }
+                    this.createSubscription(method, bean);
                 }
             }
         }else{
@@ -79,39 +57,146 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
         }
     }
 
-    private <T> VariableMap toVariableMap(T object) {
-        VariableMap variableMap = Variables.createVariables();
-        try{
-
-            if(object instanceof Map){
-                variableMap = Variables.fromMap((Map<String, Object>) object);
-            }else {
-                BeanInfo info = Introspector.getBeanInfo(object.getClass());
-                for (PropertyDescriptor pd : info.getPropertyDescriptors()) {
-                    Method reader = pd.getReadMethod();
-                    if (reader != null && !pd.getName().equals("class")) {
-                        Object value = reader.invoke(object);
-                        if (value != null) {
-                            variableMap.putValue(pd.getName(), reader.invoke(object));
-                        }
+    public void createSubscription(Method method, Object bean) {
+        CamundaSubscription annotation = method.getAnnotation(CamundaSubscription.class);
+        if (annotation != null) {
+            log.debug("Wrapping method in camunda subscription handler: " + method.getName());
+            String topic = annotation.topic();
+            String[] arguments = annotation.arguments();
+            Class[] argumentTypes = annotation.argumentTypes();
+            Map<String, Class<?>> argumentNamesAndTypes = this.zipArrays(arguments, argumentTypes);
+            String qualifier = annotation.qualifier();
+            String resultVariableName = annotation.result();
+            String returnValueProperty = annotation.returnValueProperty();
+            taskClient.subscribe(topic).lockDuration(lockDuration).handler((externalTask, externalTaskService) -> {
+                try {
+                    String taskVariableQualifier = externalTask.getVariable("qualifier");
+                    if (!qualifier.isEmpty() && taskVariableQualifier != null && !taskVariableQualifier.isEmpty() && !qualifier.equals(taskVariableQualifier)) {
+                        log.debug("Task triggered by subscription to topic {} ignored because qualifier {} does not match {}", topic, taskVariableQualifier, qualifier);
+                        return;
                     }
+                    var args = convertArguments(argumentNamesAndTypes, externalTask.getAllVariablesTyped());
+
+                    Object result = method.invoke(bean, args);
+                    if (!returnValueProperty.isEmpty()) {
+                        result = getFieldValue(result, returnValueProperty);
+                    }
+                    var variableMap = returnValueToVariableMap(result, resultVariableName);
+                    externalTaskService.complete(externalTask, variableMap);
+                } catch (Throwable e) {
+                    log.error("Task triggered by subscription to topic {} failed".formatted(topic), e);
+                    externalTaskService.handleFailure(externalTask, "Task triggered by subscription to topic %s failed".formatted(topic), e.getMessage(), 0, 0);
                 }
-            }
-        }catch (Exception e){
-            throw new RuntimeException("Return value of the method should be a Map or a POJO", e);
+            }).open();
         }
-        return  variableMap;
     }
 
-    private Object[] retrievePropertyValues(ExternalTask externalTask, String[] propertyNames) {
-        var varMap = externalTask.getAllVariablesTyped();
-        if(propertyNames.length == 1 && propertyNames[0].equals("*")){
-            return varMap.entrySet().toArray();
+    public VariableMap returnValueToVariableMap(Object result, String resultVariableName) throws JsonProcessingException {
+        VariableMap variableMap;
+        if (result == null) {
+            variableMap = Variables.createVariables().putValue(resultVariableName, null);
         }
-        List<Object> values = Arrays.stream(propertyNames)
-                .map(varMap::get)
-                .collect(Collectors.toList());
-        return values.toArray();
+        else if (result.getClass() == byte[].class) {
+            variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.byteArrayValue((byte[]) result));
+        } else if (result instanceof String) {
+            variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.stringValue((String) result));
+        } else if (result instanceof Long) {
+            variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.longValue((Long) result));
+        } else {
+            String json = objectMapper.writeValueAsString(result);
+            variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.jsonValue(json, true));
+        }
+        return variableMap;
+    }
+
+
+    public Object[] convertArguments(Map<String, Class<?>> arguments, Map<String, Object> variableMap) {
+        Map<String, String> argAndConversionTypes = arguments.entrySet().stream()
+                .collect(Collectors.toMap(
+                        entry -> {
+                            String[] parts = entry.getKey().split(":", 2);
+                            return parts[0];
+                        },
+                        entry -> {
+                            String[] parts = entry.getKey().split(":", 2);
+                            return parts.length > 1 ? parts[1] : "string";
+                        },
+                        (existingValue, newValue) -> existingValue,
+                        LinkedHashMap::new
+                ));
+
+        List<Object> convertedArgs = new ArrayList<>(arguments.size());
+
+        for (Map.Entry<String, String> argAndConversionType : argAndConversionTypes.entrySet()) {
+            String argName = argAndConversionType.getKey();
+            String conversionType = argAndConversionType.getValue();
+            Object argValue = variableMap.get(argName);
+            log.debug("argName {}, argValue {}. variableMap.has {}", argName, argValue, variableMap.containsKey(argName));
+
+            Object convertedArgValue = null;
+            switch (conversionType) {
+                case "stringBytes":
+                    convertedArgValue = new String((byte[]) argValue);
+                    break;
+                case "base64":
+                    convertedArgValue = Base64.getDecoder().decode((String) argValue);
+                    break;
+                case "json":
+                case "jsonBytes":
+                    Class<?> clazz = arguments.get(argName + ":" + conversionType);
+                    if (clazz == null) {
+                        log.warn("({}) No class found for argument {}. Assuming it's a map", conversionType, argName);
+                        clazz = Map.class;
+                    }
+                    try {
+                        if (conversionType.equals("jsonBytes")) {
+                            convertedArgValue = objectMapper.readValue((byte[]) argValue, clazz);
+                        } else {
+                            convertedArgValue = objectMapper.readValue((String) argValue, clazz);
+                        }
+                    } catch (IOException e) {
+                        log.error("Error while converting {} to object for {}:{}", conversionType, argName, conversionType, e);
+                    }
+                    break;
+                default:
+                    if (argValue instanceof Number) {
+                        argValue = Long.valueOf(argValue.toString());
+                        log.warn("No conversion found for argument {}. But since it is a Number, assuming it's a Long", conversionType, argName);
+                    }
+                    else {
+                        log.debug("Argument has no conversion, therefore conversion skipped");
+                    }
+                    convertedArgValue = argValue;
+            }
+
+            convertedArgs.add(convertedArgValue);
+        }
+
+        return convertedArgs.toArray(new Object[convertedArgs.size()]);
+    }
+
+    private Object getFieldValue(Object obj, String fieldName) {
+        try {
+            Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true); // Necessary for accessing private fields
+            return field.get(obj);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private Map<String, Class<?>> zipArrays(String[] names, Class<?>[] classes) {
+        Map<String, Class<?>> map = new LinkedHashMap<>();
+        IntStream.range(0, names.length)
+                .forEach(i -> {
+                    if (i < classes.length) {
+                        map.put(names[i], classes[i]);
+                    } else {
+                        map.put(names[i], null);
+                    }
+                });
+        return map;
     }
 
     private boolean isCamundaAccessible() {
