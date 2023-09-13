@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.0.6'
+version = '0.0.6.6-SNAPSHOT'
 
 java {
 	sourceCompatibility = '17'
@@ -27,9 +27,30 @@ dependencies {
 	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0-alpha3'
 	implementation 'org.camunda.spin:camunda-spin-core:1.21.0'
 	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.21.0'
+	//NOTE: The following dependency is required for the Camunda external task client, must contain a class needed by the client
+	implementation 'javax.xml.bind:jaxb-api:2.3.1'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+}
+
+task customFatJar(type: Jar) {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from sourceSets.main.output
+	from {
+
+		configurations.runtimeClasspath.collect {
+			if(it.isDirectory()) {
+				it
+			} else {
+				def tree = zipTree(it)
+				tree.matching {
+					exclude 'org/springframework/**'
+					exclude 'org/slf4j/**'
+				}
+			}
+		}
+	}
 }
 
 def properties = new Properties()
@@ -48,8 +69,15 @@ publishing {
 	}
 	publications {
 		gpr(MavenPublication) {
-			from(components.java)
 			artifactId = 'camunda7support'
+			artifact customFatJar
 		}
 	}
 }
+
+publish.dependsOn customFatJar
+
+
+
+
+

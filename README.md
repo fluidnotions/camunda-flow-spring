@@ -3,6 +3,10 @@
 Introducing a seamless way to integrate Camunda service tasks without tightly binding your code to the Camunda API by having to define handlers for service tasks. This approach improves how you can manage your service tasks, making them more maintainable, unit testable, readable, and reducing boilerplate.
 It currently uses camunda's External Task Client to handle the subscription and execution of the service task. But in future we hope to add support for kafka and other messaging systems.
 
+### Usage:
+
+* provide `camunda.bpm.client.base-url` in application.properties
+
 ## Key Advantages:
 1. **Simplicity in Code**: Just annotate your existing methods within `@Service`, `@Component`, or any Spring bean, without having to refactor or modify them to fit Camunda's requirements.
 2. **Automatic Handler Creation**: At startup, our initializer scans the application and automatically wraps the annotated method with a Camunda-compatible handler. This eliminates the need for manually crafting Camunda-specific handlers.
