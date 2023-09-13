@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.0.6'
+version = '0.0.6.2-SNAPSHOT'
 
 java {
 	sourceCompatibility = '17'
@@ -32,6 +32,23 @@ dependencies {
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
 }
 
+task customFatJar(type: Jar) {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from {
+		configurations.runtimeClasspath.collect {
+			if(it.isDirectory()) {
+				it
+			} else {
+				def tree = zipTree(it)
+				tree.matching {
+					include 'org/camunda/**'
+				}
+			}
+		}
+	}
+	with jar
+}
+
 def properties = new Properties()
 file(project.rootDir.absolutePath + "/local.properties").withInputStream { properties.load(it) }
 
@@ -50,6 +67,14 @@ publishing {
 		gpr(MavenPublication) {
 			from(components.java)
 			artifactId = 'camunda7support'
+			artifact customFatJar
 		}
 	}
 }
+
+publish.dependsOn customFatJar
+
+
+
+
+
