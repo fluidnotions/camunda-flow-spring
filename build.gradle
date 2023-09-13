@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.0.6.2-SNAPSHOT'
+version = '0.0.6.3-SNAPSHOT'
 
 java {
 	sourceCompatibility = '17'
@@ -34,7 +34,9 @@ dependencies {
 
 task customFatJar(type: Jar) {
 	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from sourceSets.main.output
 	from {
+
 		configurations.runtimeClasspath.collect {
 			if(it.isDirectory()) {
 				it
@@ -46,7 +48,6 @@ task customFatJar(type: Jar) {
 			}
 		}
 	}
-	with jar
 }
 
 def properties = new Properties()
@@ -65,7 +66,6 @@ publishing {
 	}
 	publications {
 		gpr(MavenPublication) {
-			from(components.java)
 			artifactId = 'camunda7support'
 			artifact customFatJar
 		}
