@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.0.6.3-SNAPSHOT'
+version = '0.0.6.6-SNAPSHOT'
 
 java {
 	sourceCompatibility = '17'
@@ -27,6 +27,8 @@ dependencies {
 	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0-alpha3'
 	implementation 'org.camunda.spin:camunda-spin-core:1.21.0'
 	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.21.0'
+	//NOTE: The following dependency is required for the Camunda external task client, must contain a class needed by the client
+	implementation 'javax.xml.bind:jaxb-api:2.3.1'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
@@ -43,7 +45,8 @@ task customFatJar(type: Jar) {
 			} else {
 				def tree = zipTree(it)
 				tree.matching {
-					include 'org/camunda/**'
+					exclude 'org/springframework/**'
+					exclude 'org/slf4j/**'
 				}
 			}
 		}
