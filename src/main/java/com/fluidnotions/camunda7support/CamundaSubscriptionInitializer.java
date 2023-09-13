@@ -35,6 +35,9 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     @Value("${cam.service-task.lock-duration:30000}")
     private Long lockDuration;
 
+    @Value("${camunda.bpm.client.json-value-transient:true}")
+    private String jsonValueTransient;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private final ExternalTaskClient taskClient;
@@ -104,7 +107,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
             variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.longValue((Long) result));
         } else {
             String json = objectMapper.writeValueAsString(result);
-            variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.jsonValue(json, true));
+            variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.jsonValue(json, jsonValueTransient.equals("true")));
         }
         return variableMap;
     }
