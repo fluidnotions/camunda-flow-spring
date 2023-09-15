@@ -14,6 +14,7 @@ It currently uses camunda's External Task Client to handle the subscription and 
 4. **Preserved Method Usability**: Despite being wrapped for Camunda, the methods can still be invoked traditionally, ensuring that the original functionality remains untouched.
 
 By using this library, you ensure a cleaner integration with Camunda, minimizing the disruption to your existing codebase and maximizing your development efficiency.
+This approach allows for a seamless integration with Camunda, letting developers focus on business logic rather than the intricacies of the Camunda API.
 
 ### Example usage:
 
@@ -22,7 +23,7 @@ By using this library, you ensure a cleaner integration with Camunda, minimizing
     topic = "send-email-task", 
     qualifier = "requestType", 
     result = "response", 
-    arguments = {"requestData:jsonBytes", "attachmentBytes", "recipientEmail", "templateName"}, 
+    arguments = {"requestData:bytes->pojo", "attachmentBytes", "recipientEmail", "templateName"}, 
     argumentTypes = {JsonNode.class}
 )
 public byte[] sendEmail(JsonNode requestData, byte[] attachmentBytes, byte[] recipientEmail, String templateName) {
@@ -56,13 +57,27 @@ public byte[] sendEmail(JsonNode requestData, byte[] attachmentBytes, byte[] rec
     - `topic`: Specifies the Camunda topic that this subscription listens to.
     - `qualifier`: Used to filter below the topic level. Multiple methods may listen to a topic but in some cases business logic requires that only some are invoked.
     - `result`: Defines the variable name in which the method’s return will be stored in Camunda.
-    - `arguments`: An array that defines the parameters being passed to the method. It's a way to map input data to method arguments. With some basic parsing. For example `:jsonBytes` indicates that the argument should be passed into a string but was stored as bytes due to it's length.
+    - `arguments`: An array that defines the parameters being passed to the method. It's a way to map input data to method arguments. With some basic parsing.
     - `argumentTypes`: An array that specifies the data types of each argument. This is used in the case of deserialization to a specific object type. Given the limitations of Annotations these correlate with the arguments array by index.
 
-This approach allows for a seamless integration with Camunda, letting developers focus on business logic rather than the intricacies of the Camunda API.
+### Argument Parsing Notation:
+
+- `bytes->string`:
+  - Convert byte array (`byte[]`) to a string. It's often necessary to use byte arrays in Camunda, for very long strings for json, because else they will be too long for Camunda to store in the database.
+
+- `base64->string`:
+  - Decode a Base64 encoded string to its original string value.
+
+- `string->pojo` and `bytes->pojo`:
+  - Convert a string or byte array to an object, using the type provided in `argumentTypes`. If none is provided a Map is assumed.
+
+- `number->string`:
+  - Convert a number to its string representation.
+
+- `default`:
+  - If the `argValue` is a number, converts it to a `Long` and logs a warning.
+  - Otherwise, it logs conversion has been skipped.
 
 ### Caveats:
 
-- The library is in early development and is not yet available on Maven Central. To use it, you must clone the repository and build it locally.
-- The library is currently only compatible with Spring Boot applications.
 - The library is a bit ruff around the edges and will be improved over time.
