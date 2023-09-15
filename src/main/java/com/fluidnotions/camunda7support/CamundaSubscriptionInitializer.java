@@ -161,6 +161,9 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                         log.error("Error while converting {} to object for {}:{}", conversionType, argName, conversionType, e);
                     }
                     break;
+                case "string":
+                    convertedArgValue = String.valueOf(argValue);
+                    break;
                 default:
                     if (argValue instanceof Number) {
                         argValue = Long.valueOf(argValue.toString());
