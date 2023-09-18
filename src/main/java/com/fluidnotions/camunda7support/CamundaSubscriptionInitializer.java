@@ -122,7 +122,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                         },
                         entry -> {
                             String[] parts = entry.getKey().split(":", 2);
-                            return parts[1];
+                            return parts.length > 1 ? parts[1] : "string";
                         },
                         (existingValue, newValue) -> existingValue,
                         LinkedHashMap::new
