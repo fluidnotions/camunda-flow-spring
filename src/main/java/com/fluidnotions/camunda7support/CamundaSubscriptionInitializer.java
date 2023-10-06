@@ -138,14 +138,14 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
 
             Object convertedArgValue = null;
             switch (conversionType) {
-                case "stringBytes":
+                case "bytes->string":
                     convertedArgValue = new String((byte[]) argValue);
                     break;
-                case "base64":
+                case "base64->string":
                     convertedArgValue = Base64.getDecoder().decode((String) argValue);
                     break;
-                case "json":
-                case "jsonBytes":
+                case "string->pojo":
+                case "bytes->pojo":
                     Class<?> clazz = arguments.get(argName + ":" + conversionType);
                     if (clazz == null) {
                         log.warn("({}) No class found for argument {}. Assuming it's a map", conversionType, argName);
@@ -161,7 +161,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                         log.error("Error while converting {} to object for {}:{}", conversionType, argName, conversionType, e);
                     }
                     break;
-                case "string":
+                case "number->string":
                     convertedArgValue = String.valueOf(argValue);
                     break;
                 default:
