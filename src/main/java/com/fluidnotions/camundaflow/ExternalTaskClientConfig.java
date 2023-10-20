@@ -1,4 +1,4 @@
-package com.fluidnotions.camunda7support;
+package com.fluidnotions.camundaflow;
 
 import org.camunda.bpm.client.ExternalTaskClient;
 import org.springframework.beans.factory.annotation.Value;

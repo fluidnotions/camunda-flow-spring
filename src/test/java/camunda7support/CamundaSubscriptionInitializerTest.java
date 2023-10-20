@@ -2,7 +2,7 @@ package camunda7support;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fluidnotions.camunda7support.CamundaSubscriptionInitializer;
+import com.fluidnotions.camundaflow.CamundaSubscriptionInitializer;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
