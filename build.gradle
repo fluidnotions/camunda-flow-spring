@@ -6,7 +6,8 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.1.1'
+version = '0.2.0'
+
 
 java {
 	sourceCompatibility = '17'
@@ -68,7 +69,7 @@ publishing {
 	}
 	publications {
 		gpr(MavenPublication) {
-			artifactId = 'camunda7support'
+			artifactId = 'camunda-flow-spring'
 			artifact customFatJar
 		}
 	}
