@@ -1,7 +1,9 @@
 package com.fluidnotions.camundaflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.client.ExternalTaskClient;
@@ -38,7 +40,12 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     @Value("${camunda.bpm.client.json-value-transient:true}")
     private String jsonValueTransient;
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    public ObjectMapper objectMapper(){
+        var  objectMapper = new ObjectMapper();
+        objectMapper().registerModule(new JavaTimeModule());
+        objectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return objectMapper;
+    }
 
     private final ExternalTaskClient taskClient;
 
@@ -106,7 +113,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
         } else if (result instanceof Long) {
             variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.longValue((Long) result));
         } else {
-            String json = objectMapper.writeValueAsString(result);
+            String json = objectMapper().writeValueAsString(result);
             variableMap = Variables.createVariables().putValue(resultVariableName, ClientValues.jsonValue(json, jsonValueTransient.equals("true")));
         }
         return variableMap;
@@ -153,9 +160,9 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                     }
                     try {
                         if (conversionType.equals("jsonBytes")) {
-                            convertedArgValue = objectMapper.readValue((byte[]) argValue, clazz);
+                            convertedArgValue = objectMapper().readValue((byte[]) argValue, clazz);
                         } else {
-                            convertedArgValue = objectMapper.readValue((String) argValue, clazz);
+                            convertedArgValue = objectMapper().readValue((String) argValue, clazz);
                         }
                     } catch (IOException e) {
                         log.error("Error while converting {} to object for {}:{}", conversionType, argName, conversionType, e);

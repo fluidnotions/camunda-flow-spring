@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.2.0'
+version = '0.2.0-SNAPSHOT'
 
 
 java {
@@ -25,9 +25,9 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
-	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0-alpha3'
-	implementation 'org.camunda.spin:camunda-spin-core:1.21.0'
-	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.21.0'
+	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0'
+	implementation 'org.camunda.spin:camunda-spin-core:1.22.0'
+	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.22.0'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:+'//handle LocalDateTime
 	//NOTE: The following dependency is required for the Camunda external task client, must contain a class needed by the client
 	implementation 'javax.xml.bind:jaxb-api:2.3.1'
