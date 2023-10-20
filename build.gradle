@@ -70,7 +70,7 @@ publishing {
 	}
 	publications {
 		gpr(MavenPublication) {
-			artifactId = 'camunda-flow-spring'
+			artifactId = 'spring-boot-camunda-flow'
 			artifact customFatJar
 		}
 	}
