@@ -79,7 +79,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
 
     public void scanBeansForFlowAnnotations(ExternalTaskClient taskClient) {
         if (isCamundaAccessible()) {
-            log.debug("Camunda %s is accessible, scanning beans for flow annotations".formatted(camundaBaseUrl));
+            log.info("Camunda %s is accessible, scanning beans for flow annotations".formatted(camundaBaseUrl));
             for (Object bean : beans.values()) {
                 Class<?> targetClass = (AopUtils.isAopProxy(bean) ? AopUtils.getTargetClass(bean) : bean.getClass());
                 log.debug("Checking bean: " + targetClass.getName());
