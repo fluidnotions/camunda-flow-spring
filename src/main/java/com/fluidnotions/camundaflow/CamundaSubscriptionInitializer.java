@@ -1,11 +1,10 @@
-package com.fluidnotions.camunda7support;
+package com.fluidnotions.camundaflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.client.ExternalTaskClient;
-import org.camunda.bpm.client.impl.EngineClientException;
 import org.camunda.bpm.client.variable.ClientValues;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
@@ -22,8 +21,6 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -41,8 +38,22 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     @Value("${camunda.bpm.client.json-value-transient:true}")
     private String jsonValueTransient;
 
-    private ObjectMapper objectMapper = new ObjectMapper();
 
+
+    private final ExternalTaskClient taskClient;
+    private final ObjectMapper objectMapper;
+
+    public CamundaSubscriptionInitializer(ExternalTaskClient taskClient) {
+        this.taskClient = taskClient;
+        this.objectMapper = initObjectMapper();
+    }
+
+    private ObjectMapper initObjectMapper(){
+        var  objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return objectMapper;
+    }
 
 
     @Override
@@ -154,7 +165,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                         },
                         entry -> {
                             String[] parts = entry.getKey().split(":", 2);
-                            return parts[1];
+                            return parts.length > 1 ? parts[1] : "string";
                         },
                         (existingValue, newValue) -> existingValue,
                         LinkedHashMap::new
@@ -178,20 +189,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                     break;
                 case "string->pojo":
                 case "bytes->pojo":
-                    Class<?> clazz = arguments.get(argName + ":" + conversionType);
-                    if (clazz == null) {
-                        log.warn("({}) No class found for argument {}. Assuming it's a map", conversionType, argName);
-                        clazz = Map.class;
-                    }
-                    try {
-                        if (conversionType.equals("jsonBytes")) {
-                            convertedArgValue = objectMapper.readValue((byte[]) argValue, clazz);
-                        } else {
-                            convertedArgValue = objectMapper.readValue((String) argValue, clazz);
-                        }
-                    } catch (IOException e) {
-                        log.error("Error while converting {} to object for {}:{}", conversionType, argName, conversionType, e);
-                    }
+                    convertedArgValue = deserialize(arguments, argName, conversionType, argValue);
                     break;
                 case "number->string":
                     convertedArgValue = String.valueOf(argValue);
@@ -211,6 +209,25 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
         }
 
         return convertedArgs.toArray(new Object[convertedArgs.size()]);
+    }
+
+    public Object deserialize(Map<String, Class<?>> arguments, String argName, String conversionType, Object argValue) {
+        Object convertedArgValue = null;
+        Class<?> clazz = arguments.get(argName + ":" + conversionType);
+        if (clazz == null) {
+            log.warn("({}) No class found for argument {}. Assuming it's a map", conversionType, argName);
+            clazz = Map.class;
+        }
+        try {
+            if (conversionType.equals("bytes->pojo")) {
+                convertedArgValue = objectMapper.readValue((byte[]) argValue, clazz);
+            } else {
+                convertedArgValue = objectMapper.readValue((String) argValue, clazz);
+            }
+        } catch (IOException e) {
+            log.error("Error while converting {} to object for {}:{}", conversionType, argName, conversionType, e);
+        }
+        return convertedArgValue;
     }
 
     private Object getFieldValue(Object obj, String fieldName) {

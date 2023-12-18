@@ -1,4 +1,4 @@
-package com.fluidnotions.camunda7support;
+package com.fluidnotions.camundaflow;
 
 
 

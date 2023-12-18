@@ -1,24 +1,27 @@
-package camunda7support;
+package com.fluidnotions.camundaflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fluidnotions.camunda7support.CamundaSubscriptionInitializer;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-public class CamundaSubscriptionInitializerTest {
+public class CamundaSubscriptionInitializerTests {
 
-    static final Logger log = LoggerFactory.getLogger(CamundaSubscriptionInitializerTest.class);
+    static final Logger log = LoggerFactory.getLogger(CamundaSubscriptionInitializerTests.class);
+
+    record TestRecord(String test){}
 
     @Test
-    public void testConvertArguments() throws JsonProcessingException {
+    void convertArguments() throws JsonProcessingException {
         CamundaSubscriptionInitializer camundaSubscriptionInitializer = new CamundaSubscriptionInitializer(null);
         ObjectMapper objectMapper = new ObjectMapper();
         Map<String, Class<?>> arguments = new HashMap<>();
@@ -28,7 +31,7 @@ public class CamundaSubscriptionInitializerTest {
         VariableMap variableMap = Variables.createVariables();
         variableMap.put("test", "test");
         variableMap.put("test2", this.generateByteArray());
-        var json = objectMapper.writeValueAsString(new TestClass("test"));
+        var json = objectMapper.writeValueAsString(new TestRecord("test"));
         log.info("json: {}", json);
         variableMap.put("test3", json);
         var args = camundaSubscriptionInitializer.convertArguments(arguments, variableMap);
@@ -50,7 +53,19 @@ public class CamundaSubscriptionInitializerTest {
         return base64String;
     }
 
-    public void testConvertReturnValueToString(){
+
+
+    @Test
+     void deserializePojo(){
         CamundaSubscriptionInitializer camundaSubscriptionInitializer = new CamundaSubscriptionInitializer(null);
+        String argName = "test";
+        String conversionType = "string->pojo";
+        Object argValue = """
+                          {"supplierkey":9,"supplierreference":"239473847289","quotenumber":"VOF021046-VOD-DFA_BOQ_V14_20231020","versione":1,"createdby":-1,"orderrequestkey":13147,"cancellationrequested":false,"id":34013,"orderrequesttypekey":16,"createdon":"2023-10-20T17:53:19.7264258","quotetypekey":14,"buildcost":1508531}
+                          """;
+        Map<String, Class<?>> arguments = Map.of(argName + ":" + conversionType, TestClass.ProcessContextQuote.class);
+        var pcq = camundaSubscriptionInitializer.deserialize(arguments, argName, conversionType, argValue);
+        log.info("pcq: {}", pcq);
+        assert pcq instanceof TestClass.ProcessContextQuote;
     }
 }

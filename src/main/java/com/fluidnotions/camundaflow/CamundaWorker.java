@@ -1,4 +1,4 @@
-package com.fluidnotions.camunda7support;
+package com.fluidnotions.camundaflow;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
