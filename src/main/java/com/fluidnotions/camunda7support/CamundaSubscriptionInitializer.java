@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.client.ExternalTaskClient;
+import org.camunda.bpm.client.impl.EngineClientException;
 import org.camunda.bpm.client.variable.ClientValues;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
@@ -21,6 +22,8 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -40,27 +43,54 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
 
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    private final ExternalTaskClient taskClient;
+
 
     @Override
     public void onApplicationEvent(final ApplicationReadyEvent event) {
         ApplicationContext applicationContext = event.getApplicationContext();
-        Map<String, Object> beans = applicationContext.getBeansWithAnnotation(CamundaWorker.class);
-        if(isCamundaAccessible()){
+        beans = applicationContext.getBeansWithAnnotation(CamundaWorker.class);
+        ExternalTaskClient taskClient = null;
+        try {
+            taskClient = ExternalTaskClient.create().baseUrl(basePath).asyncResponseTimeout(10000).build();
+            retryUntilSuccess(taskClient);
+        } catch (EngineClientException e) {
+            log.error("Will execute retryUntilSuccess and try setup again", e);
+            retryUntilSuccess(taskClient);
+        }
+    }
+
+    private CompletableFuture<?> retryUntilSuccess(ExternalTaskClient taskClient) {
+        return CompletableFuture.runAsync(() -> {
+            scanBeansForFlowAnnotations(taskClient);
+        }).thenApply(v -> null).exceptionally(e -> {
+            try {
+                TimeUnit.SECONDS.sleep(5);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            return retryUntilSuccess(taskClient).join();
+        });
+    }
+
+    public void scanBeansForFlowAnnotations(ExternalTaskClient taskClient) {
+        if (isCamundaAccessible()) {
+            log.debug("Camunda %s is accessible, scanning beans for flow annotations".formatted(camundaBaseUrl));
             for (Object bean : beans.values()) {
                 Class<?> targetClass = (AopUtils.isAopProxy(bean) ? AopUtils.getTargetClass(bean) : bean.getClass());
                 log.debug("Checking bean: " + targetClass.getName());
                 Method[] methods = targetClass.getMethods();
                 for (Method method : methods) {
-                    this.createSubscription(method, bean);
+                    this.createSubscription(method, bean, taskClient);
                 }
             }
-        }else{
-            log.warn("Camunda {} is not accessible, subscription set initialization aborted", camundaBaseUrl);
+        }
+        else {
+            log.warn("Camunda %s is not accessible, subscription set initialization aborted, will retry".formatted(camundaBaseUrl));
+            throw new RuntimeException("Camunda %s is not accessible, subscription set initialization aborted, will retry".formatted(camundaBaseUrl));
         }
     }
 
-    public void createSubscription(Method method, Object bean) {
+    public void createSubscription(Method method, Object bean, ExternalTaskClient taskClient) {
         CamundaSubscription annotation = method.getAnnotation(CamundaSubscription.class);
         if (annotation != null) {
             log.debug("Wrapping method in camunda subscription handler: " + method.getName());
@@ -71,6 +101,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
             String qualifier = annotation.qualifier();
             String resultVariableName = annotation.result();
             String returnValueProperty = annotation.returnValueProperty();
+
             taskClient.subscribe(topic).lockDuration(lockDuration).handler((externalTask, externalTaskService) -> {
                 try {
                     String taskVariableQualifier = externalTask.getVariable("qualifier");
@@ -91,6 +122,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                     externalTaskService.handleFailure(externalTask, "Task triggered by subscription to topic %s failed".formatted(topic), e.getMessage(), 0, 0);
                 }
             }).open();
+
         }
     }
 

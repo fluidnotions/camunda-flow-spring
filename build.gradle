@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.2.0'
+version = '0.2.4-SNAPSHOT'
 
 
 java {
@@ -25,14 +25,16 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
-	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0-alpha3'
-	implementation 'org.camunda.spin:camunda-spin-core:1.21.0'
-	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.21.0'
+	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0'
+	implementation 'org.camunda.spin:camunda-spin-core:1.22.0'
+	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.22.0'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:+'//handle LocalDateTime
 	//NOTE: The following dependency is required for the Camunda external task client, must contain a class needed by the client
 	implementation 'javax.xml.bind:jaxb-api:2.3.1'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+	testImplementation platform('org.junit:junit-bom:5.10.0')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
 task customFatJar(type: Jar) {
@@ -60,7 +62,7 @@ publishing {
 	repositories {
 		maven {
 			name = "GitHubPackages"
-			url = uri("https://maven.pkg.github.com/fluidnotions/camunda7support")
+			url = uri("https://maven.pkg.github.com/fluidnotions/spring-boot-camunda-flow")
 			credentials {
 				username = properties.getProperty('github.username')
 				password = properties.getProperty('github.token')
@@ -69,13 +71,23 @@ publishing {
 	}
 	publications {
 		gpr(MavenPublication) {
-			artifactId = 'camunda-flow-spring'
+			artifactId = 'spring-boot-camunda-flow'
 			artifact customFatJar
 		}
 	}
 }
 
 publish.dependsOn customFatJar
+
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+}
+
+
 
 
 
