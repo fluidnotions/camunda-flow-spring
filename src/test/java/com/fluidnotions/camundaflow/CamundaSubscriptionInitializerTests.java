@@ -7,6 +7,7 @@ import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,7 +23,7 @@ public class CamundaSubscriptionInitializerTests {
 
     @Test
     void convertArguments() throws JsonProcessingException {
-        CamundaSubscriptionInitializer camundaSubscriptionInitializer = new CamundaSubscriptionInitializer(null);
+        CamundaSubscriptionInitializer camundaSubscriptionInitializer = new CamundaSubscriptionInitializer( new Jackson2ObjectMapperBuilder());
         ObjectMapper objectMapper = new ObjectMapper();
         Map<String, Class<?>> arguments = new HashMap<>();
         arguments.put("test3:json", TestClass.class);
@@ -57,7 +58,7 @@ public class CamundaSubscriptionInitializerTests {
 
     @Test
      void deserializePojo(){
-        CamundaSubscriptionInitializer camundaSubscriptionInitializer = new CamundaSubscriptionInitializer(null);
+        CamundaSubscriptionInitializer camundaSubscriptionInitializer = new CamundaSubscriptionInitializer( new Jackson2ObjectMapperBuilder());
         String argName = "test";
         String conversionType = "string->pojo";
         Object argValue = """

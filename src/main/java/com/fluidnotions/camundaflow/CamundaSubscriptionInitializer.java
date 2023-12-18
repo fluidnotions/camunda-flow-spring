@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.client.ExternalTaskClient;
+import org.camunda.bpm.client.impl.EngineClientException;
 import org.camunda.bpm.client.variable.ClientValues;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -21,6 +23,8 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -38,29 +42,19 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     @Value("${camunda.bpm.client.json-value-transient:true}")
     private String jsonValueTransient;
 
+    @Value("${camunda.bpm.client.base-url}")
+    private String basePath;
 
-
-    private final ExternalTaskClient taskClient;
-    private final ObjectMapper objectMapper;
-
-    public CamundaSubscriptionInitializer(ExternalTaskClient taskClient) {
-        this.taskClient = taskClient;
-        this.objectMapper = initObjectMapper();
-    }
-
-    private ObjectMapper initObjectMapper(){
-        var  objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        return objectMapper;
-    }
-
+    private final Jackson2ObjectMapperBuilder jacksonBuilder;
+    private Map<String, Object> beans;
+    private ObjectMapper objectMapper;
+    private ExternalTaskClient taskClient;
 
     @Override
     public void onApplicationEvent(final ApplicationReadyEvent event) {
         ApplicationContext applicationContext = event.getApplicationContext();
+        objectMapper = jacksonBuilder.build();
         beans = applicationContext.getBeansWithAnnotation(CamundaWorker.class);
-        ExternalTaskClient taskClient = null;
         try {
             taskClient = ExternalTaskClient.create().baseUrl(basePath).asyncResponseTimeout(10000).build();
             retryUntilSuccess(taskClient);
