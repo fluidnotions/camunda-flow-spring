@@ -64,6 +64,8 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
         }
     }
 
+
+
     private CompletableFuture<?> retryUntilSuccess(ExternalTaskClient taskClient) {
         return CompletableFuture.runAsync(() -> {
             scanBeansForFlowAnnotations(taskClient);

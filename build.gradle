@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.fluidnotions'
-version = '0.2.3-SNAPSHOT'
+version = '0.2.7'
 
 
 java {
@@ -26,7 +26,7 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.camunda.bpm:camunda-external-task-client:7.20.0'
+	implementation 'org.camunda.bpm:camunda-external-task-client:7.21.0-alpha2'
 	implementation 'org.camunda.spin:camunda-spin-core:1.22.0'
 	implementation 'org.camunda.spin:camunda-spin-dataformat-json-jackson:1.22.0'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:+'//handle LocalDateTime
