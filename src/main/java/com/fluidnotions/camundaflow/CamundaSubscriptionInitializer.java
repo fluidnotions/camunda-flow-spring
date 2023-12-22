@@ -154,11 +154,11 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
         Map<String, String> argAndConversionTypes = arguments.entrySet().stream()
                 .collect(Collectors.toMap(
                         entry -> {
-                            String[] parts = entry.getKey().split("->", 2);
+                            String[] parts = entry.getKey().split(":", 2);
                             return parts[0];
                         },
                         entry -> {
-                            String[] parts = entry.getKey().split("->", 2);
+                            String[] parts = entry.getKey().split(":", 2);
                             return parts.length > 1 ? parts[1] : "string";
                         },
                         (existingValue, newValue) -> existingValue,
