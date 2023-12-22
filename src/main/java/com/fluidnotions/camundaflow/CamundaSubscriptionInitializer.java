@@ -45,15 +45,13 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     @Value("${camunda.bpm.client.base-url}")
     private String basePath;
 
-    private final Jackson2ObjectMapperBuilder jacksonBuilder;
+    private final ObjectMapper objectMapper;
     private Map<String, Object> beans;
-    private ObjectMapper objectMapper;
     private ExternalTaskClient taskClient;
 
     @Override
     public void onApplicationEvent(final ApplicationReadyEvent event) {
         ApplicationContext applicationContext = event.getApplicationContext();
-        objectMapper = jacksonBuilder.build();
         beans = applicationContext.getBeansWithAnnotation(CamundaWorker.class);
         try {
             taskClient = ExternalTaskClient.create().baseUrl(basePath).asyncResponseTimeout(10000).build();
@@ -156,11 +154,11 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
         Map<String, String> argAndConversionTypes = arguments.entrySet().stream()
                 .collect(Collectors.toMap(
                         entry -> {
-                            String[] parts = entry.getKey().split(":", 2);
+                            String[] parts = entry.getKey().split("->", 2);
                             return parts[0];
                         },
                         entry -> {
-                            String[] parts = entry.getKey().split(":", 2);
+                            String[] parts = entry.getKey().split("->", 2);
                             return parts.length > 1 ? parts[1] : "string";
                         },
                         (existingValue, newValue) -> existingValue,
