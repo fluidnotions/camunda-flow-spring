@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.client.ExternalTaskClient;
 import org.camunda.bpm.client.impl.EngineClientException;
+import org.camunda.bpm.client.task.ExternalTask;
 import org.camunda.bpm.client.variable.ClientValues;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
@@ -102,15 +103,14 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
             String[] arguments = annotation.arguments();
             Class[] argumentTypes = annotation.argumentTypes();
             Map<String, Class<?>> argumentNamesAndTypes = this.zipArrays(arguments, argumentTypes);
-            String qualifier = annotation.qualifier();
+            QualifierConditional qualifierConditional = buildQualifierConditional(annotation);
             String resultVariableName = annotation.result();
             String returnValueProperty = annotation.returnValueProperty();
 
             taskClient.subscribe(topic).lockDuration(lockDuration).handler((externalTask, externalTaskService) -> {
                 try {
-                    String taskVariableQualifier = externalTask.getVariable("qualifier");
-                    if (!qualifier.isEmpty() && taskVariableQualifier != null && !taskVariableQualifier.isEmpty() && !qualifier.equals(taskVariableQualifier)) {
-                        log.debug("Task triggered by subscription to topic {} ignored because qualifier {} does not match {}", topic, taskVariableQualifier, qualifier);
+                    if (!evalQualifierConditional(qualifierConditional, externalTask)) {
+                        log.debug("Task triggered by subscription to topic {} ignored because qualifier {} does not match {}", topic, qualifierConditional);
                         return;
                     }
                     var args = convertArguments(argumentNamesAndTypes, externalTask.getAllVariablesTyped());
@@ -126,6 +126,67 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
                     externalTaskService.handleFailure(externalTask, "Task triggered by subscription to topic %s failed".formatted(topic), e.getMessage(), 0, 0);
                 }
             }).open();
+
+        }
+    }
+
+    record QualifierConditional(String variable, String[] values, Boolean equals) {}
+
+    public QualifierConditional buildQualifierConditional(CamundaSubscription annotation) {
+        try {
+            if(annotation.qualifier().indexOf("!=") == -1) {
+                String variable = annotation.qualifier().split("=")[0];
+                String[] values = annotation.qualifier().split("=")[1].split(",");
+                return new QualifierConditional(variable, values, true);
+            }else{
+                String variable = annotation.qualifier().split("!=")[0];
+                String[] values = annotation.qualifier().split("!=")[1].split(",");
+                return new QualifierConditional(variable, values, false);
+            }
+
+        } catch (Exception e) {
+            log.error("Error building qualifier conditional", e);
+            return null;
+        }
+    }
+
+    public Boolean evalQualifierConditional(QualifierConditional qualifierConditional, ExternalTask externalTask) {
+        if (qualifierConditional == null) {
+            return true;
+        }
+        try {
+            Object taskVariableValue;
+            Long longOfValue;
+            try {
+                if(qualifierConditional.variable().indexOf(".") == -1){
+                    taskVariableValue = externalTask.getVariable(qualifierConditional.variable());
+                }else{
+                    String[] parts = qualifierConditional.variable().split("\\.");
+                    taskVariableValue = externalTask.getVariable(parts[0]);
+                    for(int i = 1; i < parts.length; i++){
+                        if(taskVariableValue instanceof Map map){
+                            taskVariableValue = map.get(parts[i]);
+                        }
+                    }
+                }
+
+                longOfValue = Long.valueOf(taskVariableValue.toString());
+            } catch (NullPointerException e) {
+                longOfValue = 0L;
+            }
+            Boolean eq = qualifierConditional.equals();
+            Long finalLongOfValue = longOfValue;
+            return Arrays.stream(qualifierConditional.values()).anyMatch(value -> {
+                Long longValue = value.equals("null")? 0L: Long.valueOf(value);
+                if (eq) {
+                    return longValue.equals(finalLongOfValue);
+                } else {
+                    return !longValue.equals(finalLongOfValue);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Error evaluating qualifier conditional", e);
+            return true;
 
         }
     }

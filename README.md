@@ -55,7 +55,7 @@ public byte[] sendEmail(JsonNode requestData, byte[] attachmentBytes, byte[] rec
 - `@CamundaSubscription`: This is the main annotation that signifies that the method is tied to a Camunda subscription.
 
     - `topic`: Specifies the Camunda topic that this subscription listens to.
-    - `qualifier`: Used to filter below the topic level. Multiple methods may listen to a topic but in some cases business logic requires that only some are invoked.
+    - `qualifier`: Used to filter below the topic level. Multiple methods may listen to a topic but in some cases business logic requires that only some are invoked. This is in the form of `variable=value`,`variable=value1,value2` or `variable!=value`,`variable!=value1,value2` . For example, if the topic is `send-email-task` and the qualifier is `requestTypeKey=100`, then the subscription will only be invoked if the variable `requestType` is equal to `100` or in the case of `requestTypeKey!=100` the variable `requestType` is not equal to `100`. Or a comma seperated list of values, which are assumed to be numbers of type Long
     - `result`: Defines the variable name in which the method’s return will be stored in Camunda.
     - `arguments`: An array that defines the parameters being passed to the method. It's a way to map input data to method arguments. With some basic parsing.
     - `argumentTypes`: An array that specifies the data types of each argument. This is used in the case of deserialization to a specific object type. Given the limitations of Annotations these correlate with the arguments array by index.
