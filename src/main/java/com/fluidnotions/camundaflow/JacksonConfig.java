@@ -12,8 +12,7 @@ public class JacksonConfig {
     @Bean
     @ConditionalOnMissingBean
     public Jackson2ObjectMapperBuilder jacksonBuilder() {
-        Jackson2ObjectMapperBuilder builder = new Jackson2ObjectMapperBuilder();
-        return builder;
+        return new Jackson2ObjectMapperBuilder();
     }
 
     @Bean

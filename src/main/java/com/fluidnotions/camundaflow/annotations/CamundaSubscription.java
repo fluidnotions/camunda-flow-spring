@@ -1,4 +1,4 @@
-package com.fluidnotions.camundaflow;
+package com.fluidnotions.camundaflow.annotations;
 
 
 
@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
 public @interface CamundaSubscription {
     String topic();
 
-    String[] arguments() default {};
+    Argument[] arguments();
 
     String qualifier() default "";
 
@@ -20,7 +20,6 @@ public @interface CamundaSubscription {
 
     String returnValueProperty() default "";
 
-    Class[] argumentTypes() default {};
 }
 
 
