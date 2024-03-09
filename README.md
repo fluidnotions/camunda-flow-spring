@@ -20,34 +20,30 @@ This approach allows for a seamless integration with Camunda, letting developers
 
 ```java
 @CamundaSubscription(
-    topic = "send-email-task", 
-    qualifier = "requestType", 
-    result = "response", 
-    arguments = {"requestData:bytes->pojo", "attachmentBytes", "recipientEmail", "templateName"}, 
-    argumentTypes = {JsonNode.class}
+        topic = "send-email-task",
+        qualifier = "requestType",
+        result = "response",
+        arguments = {
+                @Argument(name = "requestData", parsingType = ArgumentParsingType.BYTES_TO_POJO, convertToClass = JsonNode.class),
+                @Argument(name = "attachmentBytes"),
+                @Argument(name = "recipientEmail"),
+                @Argument(name = "templateName")
+        }
 )
-public byte[] sendEmail(JsonNode requestData, byte[] attachmentBytes, byte[] recipientEmail, String templateName) {
-    Long requestTypeId = requestData.get("requestType").get("id").asLong();
-    
-    // Convert the attachment bytes to Base64 string
-    var attachmentBase64 = new String(Base64.getEncoder().encode(attachmentBytes));
-    
-    // Determine recipients based on environment
-    var emailRecipients = determineRecipients();
-    var recipients = emailRecipients.indexOf(";") > -1 ? emailRecipients.split(";") : new String[]{emailRecipients};
-    
-    // Determine email subject based on environment
-    String emailSubject = determineSubject(requestTypeId, templateName);
-    
-    var emailAttachment = new EmailClient.EmailAttachment("quote-attachment", attachmentBase64);
-    var uuid = UUID.randomUUID().toString();
-    var emailRequest = new EmailClient.EmailRequest(uuid, emailSubject, new String(recipientEmail), recipients, new EmailClient.EmailAttachment[]{emailAttachment}, null, null);
-    var response = send(emailRequest);
+public byte[] sendEmail(JsonNode requestData, String attachmentBytes, String recipientEmail, String templateName) {
+  Long requestTypeId = requestData.get("requestType").get("id").asLong();
+  String[] recipients = emailRecipients.contains(";") ? emailRecipients.split(";") : new String[]{emailRecipients};
+  String emailSubject = determineSubject(requestTypeId, templateName);
+  var emailAttachment = new EmailClient.EmailAttachment("quote-attachment", attachmentBase64);
+  var uuid = UUID.randomUUID().toString();
+  var emailRequest = new EmailClient.EmailRequest(uuid, emailSubject, recipientEmail, recipients, new EmailClient.EmailAttachment[]{emailAttachment}, null, null);
+  var response = send(emailRequest);
 
-    logger.info("Response received: " + response);
+  logger.info("Response received: " + response);
 
-    return response.getBytes();
+  return response.getBytes();
 }
+
 ```
 
 ### Annotation Explanation:
@@ -55,26 +51,27 @@ public byte[] sendEmail(JsonNode requestData, byte[] attachmentBytes, byte[] rec
 - `@CamundaSubscription`: This is the main annotation that signifies that the method is tied to a Camunda subscription.
 
     - `topic`: Specifies the Camunda topic that this subscription listens to.
-    - `qualifier`: Used to filter below the topic level. Multiple methods may listen to a topic but in some cases business logic requires that only some are invoked.
+    - `qualifier`: Used to filter below the topic level. Multiple methods may listen to a topic but in some cases business logic requires that only some are invoked. This is in the form of `variable=value`,`variable=value1,value2` or `variable!=value`,`variable!=value1,value2` . For example, if the topic is `send-email-task` and the qualifier is `requestTypeKey=100`, then the subscription will only be invoked if the variable `requestType` is equal to `100` or in the case of `requestTypeKey!=100` the variable `requestType` is not equal to `100`. Or a comma seperated list of values, which are assumed to be numbers of type Long
     - `result`: Defines the variable name in which the method’s return will be stored in Camunda.
-    - `arguments`: An array that defines the parameters being passed to the method. It's a way to map input data to method arguments. With some basic parsing.
-    - `argumentTypes`: An array that specifies the data types of each argument. This is used in the case of deserialization to a specific object type. Given the limitations of Annotations these correlate with the arguments array by index.
+    - `arguments`: An array that defines the parameters being passed to the method. It's a way to map input data to method arguments. With some basic parsing, using the @Argument nested annotation.
 
-### Argument Parsing Notation:
+### Argument Nested Annotation:
 
-- `bytes->string`:
-  - Convert byte array (`byte[]`) to a string. It's often necessary to use byte arrays in Camunda, for very long strings for json, because else they will be too long for Camunda to store in the database.
+The `arguments` attribute of the `@CamundaSubscription` annotation allows for detailed specification of how each argument should be parsed before being passed to the method. This is achieved using the `@Argument` annotation within the `arguments` array. Each `@Argument` can specify the name of the variable, the parsing type, and optionally the class type to which it should be converted.
 
-- `base64->string`:
-  - Decode a Base64 encoded string to its original string value.
+- `@Argument(name = "argName", parsingType = ArgumentParsingType.BYTES_TO_STRING)`:
+  - Specifies that the argument named `argName` should be parsed from a byte array (`byte[]`) to a `String`.
 
-- `string->pojo` and `bytes->pojo`:
-  - Convert a string or byte array to an object, using the type provided in `argumentTypes`. If none is provided a Map is assumed.
+- `@Argument(name = "argName", parsingType = ArgumentParsingType.BASE64_TO_STRING)`:
+  - Indicates that the argument named `argName` should be decoded from a Base64 encoded string to its original string value.
 
-- `number->string`:
-  - Convert a number to its string representation.
+- `@Argument(name = "argName", parsingType = ArgumentParsingType.STRING_TO_POJO, convertToClass = TargetClass.class)` and `@Argument(name = "argName", parsingType = ArgumentParsingType.BYTES_TO_POJO, convertToClass = TargetClass.class)`:
+  - These configurations are used to convert a string or byte array respectively to an instance of `TargetClass`. The `convertToClass` attribute specifies the target class for conversion. If `convertToClass` is not specified, a `Map` is assumed by default.
 
-- `default`:
+- `@Argument(name = "argName", parsingType = ArgumentParsingType.NUMBER_TO_STRING)`:
+  - Converts a number (in string or numerical format) to its string representation.
+
+- `@Argument(name = "argName")`:
   - If the `argValue` is a number, converts it to a `Long` and logs a warning.
   - Otherwise, it logs conversion has been skipped.
 
