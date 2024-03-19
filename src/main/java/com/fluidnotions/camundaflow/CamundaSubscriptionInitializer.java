@@ -103,16 +103,11 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
             String[] arguments = annotation.arguments();
             Class[] argumentTypes = annotation.argumentTypes();
             Map<String, Class<?>> argumentNamesAndTypes = this.zipArrays(arguments, argumentTypes);
-            QualifierConditional qualifierConditional = buildQualifierConditional(annotation);
             String resultVariableName = annotation.result();
             String returnValueProperty = annotation.returnValueProperty();
 
             taskClient.subscribe(topic).lockDuration(lockDuration).handler((externalTask, externalTaskService) -> {
                 try {
-                    if (!evalQualifierConditional(qualifierConditional, externalTask)) {
-                        log.debug("Task triggered by subscription to topic {} ignored because qualifier {} does not match {}", topic, qualifierConditional);
-                        return;
-                    }
                     var args = convertArguments(argumentNamesAndTypes, externalTask.getAllVariablesTyped());
 
                     Object result = method.invoke(bean, args);
@@ -133,6 +128,7 @@ public class CamundaSubscriptionInitializer implements ApplicationListener<Appli
     record QualifierConditional(String variable, String[] values, Boolean equals) {}
 
     public QualifierConditional buildQualifierConditional(CamundaSubscription annotation) {
+        if(annotation.qualifier().length() == 0) return null;
         try {
             if(annotation.qualifier().indexOf("!=") == -1) {
                 String variable = annotation.qualifier().split("=")[0];
